@@ -22749,28 +22749,49 @@ const emoji = [
   }
 ]
 
+let URL = '';
+
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    if (request.url) {
+      URL = request.url;
+      sendResponse({farewell: "goodbye"});
+    }
+  }
+);
+
+let x;
+let y;
+
+document.onmousemove = handleMouseMove;
+    function handleMouseMove(event) {
+        var eventDoc, doc, body;
+
+        event = event || window.event; 
+
+        if (event.pageX == null && event.clientX != null) {
+            eventDoc = (event.target && event.target.ownerDocument) || document;
+            doc = eventDoc.documentElement;
+            body = eventDoc.body;
+
+            event.pageX = event.clientX +
+              (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
+              (doc && doc.clientLeft || body && body.clientLeft || 0);
+            event.pageY = event.clientY +
+              (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
+              (doc && doc.clientTop  || body && body.clientTop  || 0 );
+        }
+
+      x = event.pageX;
+      y = event.pageY;
+    }
+
 window.addEventListener('load', () => {
-  document.getElementsByClassName('DraftEditor-editorContainer')[0].addEventListener('click', () => {
-    console.log('clicked');
-    if (document.activeElement.getAttribute('contenteditable')) {
-      const editable = document.getElementsByClassName('DraftEditor-editorContainer')[0];
-      const suggestions = document.createElement('div');
       
-      let words = '';
       let lastWord = '';
+      let charInput = [];
+      let show = false;
 
-      function getLastWord(wordSet) {
-        let wordsArray = wordSet.split(' ');
-        return wordsArray.at(-1);
-      }
-
-      function updateWords() {
-        return document.activeElement.textContent;
-      }
-
-      function removeButtons(elem) {
-        elem.innerHTML = '';
-      }
 
       function findEmoji(emojiList) {
         const filteredTags = emojiList.filter((emoji) => {
@@ -22784,65 +22805,93 @@ window.addEventListener('load', () => {
         return filteredTagEmoji;
       }
 
-      document.activeElement.addEventListener('DOMCharacterDataModified', (e) => {
-        suggestions.innerHTML = '';
-        words = updateWords();     
-        lastWord = getLastWord(words);
-        console.log('last word', lastWord);
+      function removeSuggestions() {
+        let shownSuggestions = [...document.getElementsByClassName('emoji-container')];
         
-        const filteredEmoji = findEmoji(emoji);
-
-        function insertTextAtCaret(text) {
-          let startNode = editable.firstChild.firstChild.firstChild.firstChild.firstChild;
-          console.log(startNode);
-          let range = document.createRange();
-          range.setStart(startNode, 1);
-          let selection = window.getSelection();
-          selection.removeAllRanges()
-          selection.addRange(range);
-          range.insertNode(document.createTextNode(text));
-          range.insertNode(document.createTextNode(''));
-          const textNode = selection.focusNode;
-          const offset = selection.focusOffset + text.length;
-          selection.collapse(textNode, offset);
-      }
-        filteredEmoji.map(each => {
-          let emojiToAdd = document.createElement('div');
-          emojiToAdd.className = 'emoji';
-          emojiToAdd.innerText = each;
-          emojiToAdd.addEventListener('click', () => insertTextAtCaret(each))
-          suggestions.appendChild(emojiToAdd);
+        shownSuggestions.forEach(each => {
+          each.remove();
         });
+      }
 
-        editable.appendChild(suggestions);
-      })
+      
+        document.activeElement.addEventListener('keyup', (e) => {
+          if (document.activeElement.getAttribute('contenteditable') || document.activeElement.nodeName === 'INPUT' || document.activeElement.nodeName === 'TEXTAREA') {
+            if (URL.includes('twitter') || URL.includes('facebook')) { //for Draft.js known websites 
+              let target = document.activeElement;
+              let filteredEmoji = findEmoji(emoji);
+              show = false;
 
-      document.activeElement.addEventListener('keydown', (e) => {
-        if (e.keyCode === 46 && document.activeElement.textContent !== '' || e.keyCode === 8 && document.activeElement.textContent !== '' ) {
-          
-          
-          suggestions.innerHTML = '';
+              
+              const suggestions = document.createElement('div');
+  
+              if (e.keyCode >= 65 && e.keyCode <= 90) {
+                filteredEmoji = [];
+                charInput.push(e.key);
+                show = false;
+                words = target.textContent;
+                console.log(words, 'old words');
+                removeSuggestions();
+              } else if (e.keyCode === 13 || e.keyCode === 32) {
+                filteredEmoji = [];
+                show = false;
+                removeSuggestions();
+                words = target.textContent;
+                lastWord = charInput.join('').toLowerCase();
+                charInput = [];
+                filteredEmoji = findEmoji(emoji);
+                if (lastWord) {
+                  show = true;
+                }
+              }
 
-          words = updateWords();
-          lastWord = getLastWord(words);
+              function insertTextAtCaret(text) {
+                removeSuggestions();
+  
+                target.focus();
+                const dataTransfer = new DataTransfer();
+  
+                // this may be 'text/html' if it's required
+                  dataTransfer.setData('text/plain', text);
+  
+                  target.dispatchEvent(
+                    new ClipboardEvent('paste', {
+                      clipboardData: dataTransfer,
+  
+                      // need these for the event to reach Draft paste handler
+                      bubbles: true,
+                      cancelable: true
+                    })
+                  );
+  
+                  // clear DataTransfer Data
+                  dataTransfer.clearData();
+              }
 
-          const filteredEmoji = findEmoji(emoji);
-        
-          filteredEmoji.map(each => {
-            let emojiToAdd = document.createElement('button');
-            emojiToAdd.innerText = each;
-            suggestions.appendChild(emojiToAdd);
-          });
-
-          editable.appendChild(suggestions);
-
-        }
-      })
-    }
-  } 
-  , {once: true})
+              filteredEmoji.map(each => {
+                let emojiToAdd = document.createElement('div');
+                emojiToAdd.className = 'emoji';
+                emojiToAdd.innerText = each;
+                emojiToAdd.addEventListener('click', () => insertTextAtCaret(each));
+                suggestions.appendChild(emojiToAdd);
+              });
+      
+              if (show) {
+                suggestions.className = 'emoji-container';
+                if (URL.includes('twitter')) {
+                  target.parentElement.parentElement.parentElement.appendChild(suggestions);
+                } else if (URL.includes('facebook')) {
+                  target.parentElement.appendChild(suggestions);
+                }
+              }
+            }
+            
+  
+            
+  
+            
+          }
+        })
 })
 
-//097e8bb203a7aba532a4dc5dba7b6ed81e17091d
 
 

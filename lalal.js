@@ -117,3 +117,20 @@ window.addEventListener('load', () => {
 })
 
 //097e8bb203a7aba532a4dc5dba7b6ed81e17091d
+
+
+
+
+let startNode = editable.firstChild.firstChild.firstChild.firstChild.firstChild;
+console.log(startNode);
+let range = document.createRange();
+range.setStart(startNode,0);
+let selection = window.getSelection();
+selection.removeAllRanges()
+selection.addRange(range);
+
+range.insertNode(document.createTextNode(each));
+range.insertNode(document.createTextNode(''));
+const textNode = selection.focusNode;
+const offset = selection.focusOffset + each.length;
+selection.collapse(textNode, offset);

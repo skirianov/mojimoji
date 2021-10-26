@@ -1,0 +1,191 @@
+window.addEventListener('load', () => {
+      console.log('loaded');
+      
+      let words = '';
+      let lastWord = '';
+      let filteredEmoji = [];
+      let charInput = [];
+      let show = false;
+      let editable = false;
+
+      function getLastWord(wordSet) {
+        let wordsArray = wordSet.split(' ');
+        return wordsArray.at(-1);
+      }
+
+      function updateWords() {
+        return document.activeElement.textContent || document.activeElement.value;
+      }
+
+      function findEmoji(emojiList) {
+        const filteredTags = emojiList.filter((emoji) => {
+          return emoji.tags.includes(lastWord);
+        });
+
+        const filteredTagEmoji = filteredTags.map(each => {
+          return each.emoji;
+        });
+
+        return filteredTagEmoji;
+      }
+
+      function removeSuggestions() {
+        let shownSuggestions = [...document.getElementsByClassName('emoji-container')];
+        shownSuggestions.forEach(each => each.remove());
+      }
+
+      
+        document.activeElement.addEventListener('keyup', (e) => {
+          if (document.activeElement.getAttribute('contenteditable') || document.activeElement.nodeName === 'INPUT' || document.activeElement.nodeName === 'TEXTAREA') {
+          if (URL.includes('https://twitter.com/')) {
+            const div = document.getElementsByClassName('DraftEditor-editorContainer')[0].firstChild;
+            let filteredEmoji = findEmoji(emoji);
+
+            let spans = [...document.activeElement.getElementsByTagName('span')].filter(each => each.getAttribute('data-offset-key'));
+
+            if (e.keyCode >= 65 && e.keyCode <= 90) {
+              filteredEmoji = [];
+              charInput.push(e.key);
+              show = false;
+              removeSuggestions();
+            } else if (e.keyCode === 13 || e.keyCode === 32) {
+              removeSuggestions();
+              lastWord = charInput.join('');
+              charInput = [];
+              filteredEmoji = findEmoji(emoji);
+              if (lastWord) {
+                show = true;
+              }
+            }
+  
+            function insertTextAtCaret(text) {
+              suggestions.innerHTML = '';
+              removeSuggestions();
+
+              div.focus();
+              const dataTransfer = new DataTransfer();
+
+              // this may be 'text/html' if it's required
+                dataTransfer.setData('text/plain', text);
+
+                div.dispatchEvent(
+                  new ClipboardEvent('paste', {
+                    clipboardData: dataTransfer,
+
+                    // need these for the event to reach Draft paste handler
+                    bubbles: true,
+                    cancelable: true
+                  })
+                );
+
+                // clear DataTransfer Data
+                dataTransfer.clearData();
+            }
+  
+            const suggestions = document.createElement('div');
+            words = updateWords();     
+            lastWord = getLastWord(words);
+  
+  
+            filteredEmoji.map(each => {
+              let emojiToAdd = document.createElement('div');
+              emojiToAdd.className = 'emoji';
+              emojiToAdd.innerText = each;
+              emojiToAdd.addEventListener('click', () => insertTextAtCaret(each))
+              suggestions.appendChild(emojiToAdd);
+            });
+    
+            if (show) {
+              div.parentElement.appendChild(suggestions);
+            }
+
+          } else {
+            const div = [...document.getElementsByTagName('div')].filter(each => each.getAttribute('contenteditable'))[0];
+            const suggestions = document.createElement('div');
+  
+            function insertTextAtCaretInput(input, text) {
+              removeSuggestions();
+              
+              let start = input.selectionStart;
+              let end = input.selectionEnd;
+              input.value = input.value.substring(0, start)
+                              + text
+                              + input.value.substring(end, input.value.length);
+              show = false;
+            }
+  
+            function insertTextAtCaretDiv(text) {
+              removeSuggestions();
+              
+              let selection = window.getSelection();
+              let range = selection.getRangeAt(0);
+              range.insertNode(document.createTextNode(text));
+              selection.removeAllRanges();
+              show = false;
+            }  
+
+            
+            
+            // 
+            if (e.keyCode >= 65 && e.keyCode <= 90) {
+              filteredEmoji = [];
+              charInput.push(e.key);
+              show = false;
+              removeSuggestions();
+            } else if (e.keyCode === 13 || e.keyCode === 32) {
+              removeSuggestions();
+              lastWord = charInput.join('');
+              charInput = [];
+              filteredEmoji = findEmoji(emoji);
+              if (lastWord) {
+                show = true;
+              }
+            }
+  
+            if (div === document.activeElement) {
+              console.log('contenteditable')
+              filteredEmoji.map(each => {
+                let emojiToAdd = document.createElement('div');
+                emojiToAdd.className = 'emoji';
+                emojiToAdd.innerText = each;
+                emojiToAdd.addEventListener('click', () => insertTextAtCaretDiv(each))
+                suggestions.appendChild(emojiToAdd);
+              });
+  
+              if (show) {
+                suggestions.className = 'emoji-container';
+                suggestions.style.left = `${x+10}px`;
+                suggestions.style.top = `${y}px`;
+                let selection = window.getSelection();
+                let range = selection.getRangeAt(0);
+                range.insertNode(suggestions);
+                selection.removeAllRanges();
+              }
+              
+    
+            } else if (document.activeElement.nodeName == 'INPUT' || document.activeElement.nodeName == 'TEXTAREA'){ // text areas and inputs
+              console.log('input')
+              let input = document.activeElement;
+    
+              filteredEmoji.map(each => {
+                let emojiToAdd = document.createElement('div');
+                emojiToAdd.className = 'emoji';
+                emojiToAdd.innerText = each;
+                emojiToAdd.addEventListener('click', () => insertTextAtCaretInput(input, each))
+                suggestions.appendChild(emojiToAdd);
+              });
+  
+              if (show) {
+                suggestions.className = 'emoji-container';
+                suggestions.style.left = `${x+10}px`;
+                suggestions.style.top = `${y+10}px`;
+                document.body.appendChild(suggestions);
+              }
+            }
+    
+          }
+          
+          }
+        })
+})
+
