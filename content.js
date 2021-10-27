@@ -22755,7 +22755,8 @@ chrome.runtime.onMessage.addListener(
   function (request, sender, sendResponse) {
     if (request.url) {
       URL = request.url;
-      sendResponse({ farewell: "goodbye" });
+      console.log('received', URL);
+      sendResponse({ ok: "message received" });
     }
   }
 );
@@ -22786,6 +22787,9 @@ function handleMouseMove(event) {
   y = event.pageY;
 }
 
+
+let words;let newWords
+
 window.addEventListener('load', () => {
 
   let charInput = [];
@@ -22795,7 +22799,7 @@ window.addEventListener('load', () => {
 
   function findEmoji(emojiList) {
     const filteredTags = emojiList.filter((emoji) => {
-      return emoji.tags.includes(lastWord);
+      return emoji.tags.includes(lastWord.toLowerCase());
     });
 
     const filteredTagEmoji = filteredTags.map(each => {
@@ -22812,116 +22816,211 @@ window.addEventListener('load', () => {
       each.remove();
     });
   }
-  document.activeElement.addEventListener('keydown', (e) => {
+
+  let selected;
+  let caretPosn;
+
+    document.activeElement.addEventListener('keyup', (e) => {
     if (document.activeElement.getAttribute('contenteditable') || document.activeElement.nodeName === 'INPUT' || document.activeElement.nodeName === 'TEXTAREA') {
       if (URL.includes('twitter') || URL.includes('facebook') || URL.includes('youtube')) { //for Draft.js known websites 
-        let target = document.activeElement;
-        let filteredEmoji;
-        show = false;
-
-
-        const suggestions = document.createElement('div');
-
-        if (e.keyCode >= 65 && e.keyCode <= 90) {
-          filteredEmoji = [];
-          show = false;
-          removeSuggestions();
-        } else if (e.keyCode === 13 || e.keyCode === 32) {
-          filteredEmoji = [];
-          show = false;
-          removeSuggestions();
-          lastWord = getLastWordEntered();
-          console.log(lastWord, 'lastword');
-          filteredEmoji = findEmoji(emoji);
-          if (lastWord) {
-            show = true;
-          }
-        }
-
-
-        function getLastWordEntered() {
-          let el = document.activeElement;
-          let selection = getSelection();
-          let range = selection.getRangeAt(0);
-          let line = range.endContainer.nodeValue || '';
-          let cursor = selection.focusOffset;
-          if (!line) {
-            let childNodes = selection.anchorNode.parentNode.childNodes;
-            for (let i = 0; i < childNodes.length; i++) {
-              if (childNodes[i] == selection.anchorNode) { break; }
-              if (childNodes[i].outerHTML) {
-                if (childNodes[i].innerText) { line += ' ' + childNodes[i].innerText.trim(); }
-              } else if (childNodes[i].nodeType == 3) {
-                if (childNodes[i].textContent) { line += ' ' + childNodes[i].textContent.trim(); }
-              }
+        if (document.activeElement.getAttribute('contenteditable')) {
+          let target = document.activeElement;
+          let filteredEmoji;
+          show = false;          
+  
+  
+          const suggestions = document.createElement('div');
+  
+          if (e.keyCode >= 65 && e.keyCode <= 90) {
+            filteredEmoji = [];
+            show = false;
+            removeSuggestions();
+            selected = window.getSelection().focusNode.parentElement;
+          } else if (e.keyCode === 13 || e.keyCode === 32 || (e.keyCode >= 37 && e.keyCode <= 40)) {
+            selected = window.getSelection().focusNode.parentElement;
+            let range = window.getSelection().getRangeAt(0);
+            let preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(e.target);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            caretOffset = preCaretRange.toString().length;
+            caretPosn = caretOffset;
+            filteredEmoji = [];
+            show = false;
+            lastWord = getLastWordEntered();
+            removeSuggestions();
+            console.log(lastWord, 'lastword');
+            filteredEmoji = findEmoji(emoji);
+            if (lastWord) {
+              show = true;
             }
-            line = line.trim();
-            cursor = line.length;
           }
-          let words = line.replace(/\W+/gm, ' ').substring(0, cursor).trim().split(' ');
-          let lastWord = words[words.length - 1];
-          return lastWord.trim();
-        }
-
-        function insertEmoji() {
-          filteredEmoji.map(each => {
-            let emojiToAdd = document.createElement('div');
-            emojiToAdd.className = 'emoji';
-            emojiToAdd.innerText = each;
-            emojiToAdd.addEventListener('click', () => {
-              target.focus();
-              let sel = document.getSelection();
+  
+  
+          function getLastWordEntered() {
+            let el = document.activeElement;
+            let selection = getSelection();
+            let line;
+            let cursor;
+            if (selection.anchorOffset === 0) {
               let range = document.createRange();
-              let nodes = [...document.getElementsByTagName('SPAN')].filter(each => each.getAttribute('data-text'));
-              let lastNode = nodes.filter(each => each.textContent.includes(lastWord));
-              lastNode = lastNode[lastNode.length - 1];
-              console.log(lastNode, 'lastNode');
-              let lastNodeTextIndex = lastNode.textContent.lastIndexOf(lastWord);
-              let lastNodeText = lastNode.textContent.slice(0, lastNodeTextIndex) + lastNode.textContent.slice(lastNodeTextIndex).replace(lastWord, each);
-              console.log(lastNodeText);
-              range.setStart(lastNode, 0);
-              range.setEnd(lastNode, 1);
-              sel.removeAllRanges();
-              sel.addRange(range);
-              removeSuggestions();
-
-
-
-              setTimeout(() => {
-                const dataTransfer = new DataTransfer();
-
-                // this may be 'text/html' if it's required
-                dataTransfer.setData('text/plain', `${lastNodeText}`);
-
-                target.dispatchEvent(
-                  new ClipboardEvent('paste', {
-                    clipboardData: dataTransfer,
-
-                    // need these for the event to reach Draft paste handler
-                    bubbles: true,
-                    cancelable: true
-                  })
-                );
-                // clear DataTransfer Data
-                dataTransfer.clearData();
-              }, 0);
+              let sibling = selection.focusNode.parentElement.parentElement.parentElement.parentElement.previousElementSibling;
+              range.setStart(sibling, 0);
+              range.setEnd(sibling, 1);
+              line = range.endContainer.textContent || '';
+              cursor = line.length-1;
+              if (!line) {
+                let childNodes = sibling.childNodes;
+                for (let i = 0; i < childNodes.length; i++) {
+                  if (childNodes[i] ==  sibling) { break; }
+                  if (childNodes[i].outerHTML) {
+                    if (childNodes[i].innerText) { line += ' ' + childNodes[i].innerText.trim(); }
+                  } else if (childNodes[i].nodeType == 3) {
+                    if (childNodes[i].textContent) { line += ' ' + childNodes[i].textContent.trim(); }
+                  }
+                }
+              }
+            } else {
+              let range = selection.getRangeAt(0);
+              line = range.endContainer.nodeValue || '';
+              cursor = selection.focusOffset;
+              if (!line) {
+                let childNodes = selection.anchorNode.parentNode.childNodes;
+                for (let i = 0; i < childNodes.length; i++) {
+                  if (childNodes[i] == selection.anchorNode) { break; }
+                  if (childNodes[i].outerHTML) {
+                    if (childNodes[i].innerText) { line += ' ' + childNodes[i].innerText.trim(); }
+                  } else if (childNodes[i].nodeType == 3) {
+                    if (childNodes[i].textContent) { line += ' ' + childNodes[i].textContent.trim(); }
+                  }
+                }
+                cursor = line.length;
+                console.log(line, 'line');
+                console.log(cursor, 'cursor');
+            }
+            }
+            
+            let words = line.substring(0, cursor).split(' ').filter(each => each !== '');
+            let lastWord = words[words.length - 1];
+            return lastWord;
+          }
+  
+          function insertEmoji() {
+            filteredEmoji.map(each => {
+              let emojiToAdd = document.createElement('div');
+              emojiToAdd.className = 'emoji';
+              emojiToAdd.innerText = each;
+              emojiToAdd.addEventListener('click', () => {
+                let nextText;
+                let lastWordIndex;
+                target.focus();
+                let sel = document.getSelection();
+                let range = document.createRange();
+                console.log(selected);
+                if (selected.textContent.trim().length === 2) {
+                  let sibling = selected.parentElement.parentElement.parentElement.previousElementSibling;
+                  range.setStart(sibling, 0);
+                  range.setEnd(sibling, 1);
+                  lastWordIndex = sibling.textContent.lastIndexOf(lastWord, caretPosn);
+                  newText = sibling.textContent.slice(0, lastWordIndex) + sibling.textContent.slice(lastWordIndex).replace(lastWord, each);
+                } else {
+                  range.setStart(selected, 0);
+                  range.setEnd(selected, 1);
+                  lastWordIndex = selected.textContent.lastIndexOf(lastWord, caretPosn);
+                  newText = selected.textContent.slice(0, lastWordIndex) + selected.textContent.slice(lastWordIndex).replace(lastWord, each);
+                }
+                sel.removeAllRanges();
+                sel.addRange(range);
+                removeSuggestions();
+                
+  
+                setTimeout(() => {
+                  const dataTransfer = new DataTransfer();
+  
+                  // this may be 'text/html' if it's required
+                  dataTransfer.setData('text/plain', `${newText}`);
+  
+                  target.dispatchEvent(
+                    new ClipboardEvent('paste', {
+                      clipboardData: dataTransfer,
+  
+                      // need these for the event to reach Draft paste handler
+                      bubbles: true,
+                      cancelable: true
+                    })
+                  );
+                  // clear DataTransfer Data
+                  dataTransfer.clearData();
+                }, 0);
+              });
+              suggestions.appendChild(emojiToAdd);
             });
-            suggestions.appendChild(emojiToAdd);
-          });
-        }
-
-        if (show) {
-          suggestions.className = 'emoji-container';
-          if (URL.includes('twitter')) {
-            target.parentElement.parentElement.parentElement.appendChild(suggestions);
-            insertEmoji();
-          } else if (URL.includes('facebook')) {
-            target.parentElement.appendChild(suggestions);
-            insertEmoji();
-          } else {
-            target.appendChild(suggestions);
+          }
+  
+          if (show) {
+            suggestions.className = 'emoji-container';
+            if (URL.includes('twitter')) {
+              target.parentElement.parentElement.parentElement.appendChild(suggestions);
+              insertEmoji();
+            } else if (URL.includes('facebook')) {
+              target.parentElement.appendChild(suggestions);
+              insertEmoji();
+            }
+          }
+  
+        } else if (document.activeElement.nodeName == 'INPUT' || document.activeElement.nodeName == 'TEXTAREA') { // text areas and inputs
+          console.log('input')
+  
+          const suggestions = document.createElement('div');
+          show = false;
+          
+          function insertTextAtCaretInput(input, text) {
+            removeSuggestions();
+  
+            let index = input.value.lastIndexOf(lastWord);
+            input.value = input.value.slice(0, index) + input.value.slice(index).replace(lastWord, text);
+            show = false;
+          }
+  
+          let input = document.activeElement;
+  
+          if (e.keyCode >= 65 && e.keyCode <= 90) {
+            filteredEmoji = [];
+            show = false;
+            charInput.push(e.key);
+            removeSuggestions();
+          } else if (e.keyCode === 13 || e.keyCode === 32) {
+            filteredEmoji = [];
+            show = false;
+            removeSuggestions();
+            lastWord = charInput.join('');
+            charInput = [];
+            console.log(lastWord, 'lastword');
+            filteredEmoji = findEmoji(emoji);
+            if (lastWord) {
+              show = true;
+            }
+          }
+  
+          function insertEditable() {
+            filteredEmoji.map(each => {
+              let emojiToAdd = document.createElement('div');
+              emojiToAdd.className = 'emoji';
+              emojiToAdd.innerText = each;
+              emojiToAdd.addEventListener('click', () => insertTextAtCaretInput(input, each))
+              suggestions.appendChild(emojiToAdd);
+            });
+          }
+  
+          if (show) {
+            insertEditable();
+            suggestions.className = 'emoji-container';
+            suggestions.style.position = 'absolute';
+            suggestions.style.left = `${x + 10}px`;
+            suggestions.style.top = `${y + 10}px`;
+            document.body.appendChild(suggestions);
           }
         }
+        
       } else if (document.activeElement.getAttribute('contenteditable') && !URL.includes('twitter')) {
         // for non-specified url websites
         const suggestions = document.createElement('div');
@@ -23001,6 +23100,8 @@ window.addEventListener('load', () => {
       } else if (document.activeElement.nodeName == 'INPUT' || document.activeElement.nodeName == 'TEXTAREA') { // text areas and inputs
         console.log('input')
 
+        const suggestions = document.createElement('div');
+        show = false;
         
         function insertTextAtCaretInput(input, text) {
           removeSuggestions();
@@ -23012,15 +23113,36 @@ window.addEventListener('load', () => {
 
         let input = document.activeElement;
 
-        filteredEmoji.map(each => {
-          let emojiToAdd = document.createElement('div');
-          emojiToAdd.className = 'emoji';
-          emojiToAdd.innerText = each;
-          emojiToAdd.addEventListener('click', () => insertTextAtCaretInput(input, each))
-          suggestions.appendChild(emojiToAdd);
-        });
+        if (e.keyCode >= 65 && e.keyCode <= 90) {
+          filteredEmoji = [];
+          show = false;
+          charInput.push(e.key);
+          removeSuggestions();
+        } else if (e.keyCode === 13 || e.keyCode === 32) {
+          filteredEmoji = [];
+          show = false;
+          removeSuggestions();
+          lastWord = charInput.join('');
+          charInput = [];
+          console.log(lastWord, 'lastword');
+          filteredEmoji = findEmoji(emoji);
+          if (lastWord) {
+            show = true;
+          }
+        }
+
+        function insertEditable() {
+          filteredEmoji.map(each => {
+            let emojiToAdd = document.createElement('div');
+            emojiToAdd.className = 'emoji';
+            emojiToAdd.innerText = each;
+            emojiToAdd.addEventListener('click', () => insertTextAtCaretInput(input, each))
+            suggestions.appendChild(emojiToAdd);
+          });
+        }
 
         if (show) {
+          insertEditable();
           suggestions.className = 'emoji-container';
           suggestions.style.position = 'absolute';
           suggestions.style.left = `${x + 10}px`;
@@ -23033,6 +23155,8 @@ window.addEventListener('load', () => {
 
 
 
+    } else {
+      document.activeElement.removeEventListener('keyup');
     }
   })
 })
